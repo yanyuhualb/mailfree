@@ -614,6 +614,11 @@
   text-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
 }
 
+.modal-icon.delete {
+  color: #dc2626;
+  text-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+}
+
 .modal-header .close {
   background: rgba(248, 250, 252, 0.8);
   border: 1px solid rgba(226, 232, 240, 0.6);
@@ -896,6 +901,12 @@
 .batch-actions .btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.batch-actions #batch-delete:hover {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.28);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
 }
 
 /* 列表视图样式 */

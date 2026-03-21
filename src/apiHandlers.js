@@ -1051,6 +1051,145 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
     }
   }
 
+  if (path === '/api/mailboxes/batch-delete' && request.method === 'POST') {
+    if (isMock) return new Response('演示模式不可删除', { status: 403 });
+
+    const payload = getJwtPayload();
+    const strictAdmin = isStrictAdmin();
+    if (!strictAdmin && (!payload || payload.role !== 'admin' || !payload.userId)) {
+      return new Response('Forbidden', { status: 403 });
+    }
+
+    try {
+      const body = await request.json();
+      const addresses = body.addresses || [];
+
+      if (!Array.isArray(addresses) || addresses.length === 0) {
+        return new Response('缺少 addresses 参数或地址列表为空', { status: 400 });
+      }
+
+      if (addresses.length > 100) {
+        return new Response('单次最多处理100个邮箱', { status: 400 });
+      }
+
+      const results = [];
+      const addressMap = new Map();
+
+      for (const address of addresses) {
+        const normalizedAddress = String(address || '').trim().toLowerCase();
+        if (!normalizedAddress) {
+          results.push({ address, success: false, error: '地址为空' });
+          continue;
+        }
+        addressMap.set(normalizedAddress, address);
+      }
+
+      const normalizedAddresses = Array.from(addressMap.keys());
+      const accessibleRows = [];
+      const accessibleAddressSet = new Set();
+      let existingAddressSet = new Set();
+
+      if (normalizedAddresses.length > 0) {
+        const placeholders = normalizedAddresses.map(() => '?').join(',');
+
+        if (strictAdmin) {
+          const accessibleResult = await db.prepare(
+            `SELECT id, address FROM mailboxes WHERE address IN (${placeholders})`
+          ).bind(...normalizedAddresses).all();
+
+          for (const row of (accessibleResult.results || [])) {
+            accessibleRows.push(row);
+            accessibleAddressSet.add(row.address);
+          }
+
+          existingAddressSet = new Set(accessibleAddressSet);
+        } else {
+          const existingResult = await db.prepare(
+            `SELECT address FROM mailboxes WHERE address IN (${placeholders})`
+          ).bind(...normalizedAddresses).all();
+
+          existingAddressSet = new Set((existingResult.results || []).map(row => row.address));
+
+          const accessibleResult = await db.prepare(`
+            SELECT DISTINCT m.id, m.address
+            FROM mailboxes m
+            JOIN user_mailboxes um ON um.mailbox_id = m.id
+            WHERE um.user_id = ? AND m.address IN (${placeholders})
+          `).bind(Number(payload.userId), ...normalizedAddresses).all();
+
+          for (const row of (accessibleResult.results || [])) {
+            accessibleRows.push(row);
+            accessibleAddressSet.add(row.address);
+          }
+        }
+      }
+
+      const mailboxIds = accessibleRows.map(row => row.id);
+      let successCount = 0;
+
+      if (mailboxIds.length > 0) {
+        const mailboxIdPlaceholders = mailboxIds.map(() => '?').join(',');
+
+        try {
+          await db.exec('BEGIN');
+        } catch (_) {}
+
+        try {
+          await db.prepare(
+            `DELETE FROM messages WHERE mailbox_id IN (${mailboxIdPlaceholders})`
+          ).bind(...mailboxIds).run();
+
+          await db.prepare(
+            `DELETE FROM mailboxes WHERE id IN (${mailboxIdPlaceholders})`
+          ).bind(...mailboxIds).run();
+
+          try {
+            await db.exec('COMMIT');
+          } catch (_) {}
+
+          successCount = accessibleRows.length;
+
+          const { invalidateMailboxCache, invalidateSystemStatCache } = await import('./cacheHelper.js');
+          for (const row of accessibleRows) {
+            invalidateMailboxCache(row.address);
+          }
+          invalidateSystemStatCache('total_mailboxes');
+        } catch (e) {
+          try {
+            await db.exec('ROLLBACK');
+          } catch (_) {}
+          throw e;
+        }
+      }
+
+      for (const normalizedAddress of normalizedAddresses) {
+        if (accessibleAddressSet.has(normalizedAddress)) {
+          results.push({ address: normalizedAddress, success: true, deleted: true });
+          continue;
+        }
+
+        if (existingAddressSet.has(normalizedAddress)) {
+          results.push({ address: normalizedAddress, success: false, error: '无权删除该邮箱' });
+        } else {
+          results.push({ address: normalizedAddress, success: false, error: '邮箱不存在' });
+        }
+      }
+
+      const failCount = results.filter(item => item.success === false).length;
+
+      return Response.json({
+        success: true,
+        success_count: successCount,
+        fail_count: failCount,
+        total: addresses.length,
+        deleted_count: successCount,
+        results
+      });
+    } catch (e) {
+      return new Response('批量删除失败: ' + e.message, { status: 500 });
+    }
+  }
+
   // 删除邮箱（及其所有邮件）
   if (path === '/api/mailboxes' && request.method === 'DELETE') {
     if (isMock) return new Response('演示模式不可删除', { status: 403 });

@@ -1494,15 +1494,54 @@ window.selectAndGoToHomepage = function(address, event) {
 
 // 批量操作状态变量
 let batchOperationInProgress = false;
-let currentBatchAction = null; // 'allow' 或 'deny'
+let currentBatchAction = null; // 'allow' | 'deny' | 'delete'
+
+function getBatchActionConfig(action) {
+  if (action === 'allow') {
+    return {
+      icon: '✅',
+      iconClass: 'modal-icon unlock',
+      title: '批量放行邮箱登录',
+      message: '请输入需要放行登录的邮箱地址，每行一个。确认后这些邮箱将允许登录系统。',
+      confirmClass: 'btn btn-primary',
+      confirmText: '确认放行',
+      loadingText: '放行中...',
+      successText: '放行'
+    };
+  }
+
+  if (action === 'deny') {
+    return {
+      icon: '🚫',
+      iconClass: 'modal-icon lock',
+      title: '批量禁止邮箱登录',
+      message: '请输入需要禁止登录的邮箱地址，每行一个。确认后这些邮箱将无法登录系统。',
+      confirmClass: 'btn btn-danger',
+      confirmText: '确认禁止',
+      loadingText: '处理中...',
+      successText: '禁止'
+    };
+  }
+
+  return {
+    icon: '🗑️',
+    iconClass: 'modal-icon delete',
+    title: '批量删除邮箱',
+    message: '请输入需要删除的邮箱地址，每行一个。确认后将删除邮箱及其全部邮件，此操作不可恢复。',
+    confirmClass: 'btn btn-danger',
+    confirmText: '确认删除',
+    loadingText: '删除中...',
+    successText: '删除'
+  };
+}
 
 /**
  * 显示批量操作模态框
- * @param {string} action - 'allow' 或 'deny'
+ * @param {string} action - 'allow' | 'deny' | 'delete'
  */
 function showBatchLoginModal(action) {
   if (batchOperationInProgress) return;
-  
+
   currentBatchAction = action;
   const modal = document.getElementById('batch-login-modal');
   const icon = document.getElementById('batch-modal-icon');
@@ -1510,31 +1549,24 @@ function showBatchLoginModal(action) {
   const message = document.getElementById('batch-modal-message');
   const textarea = document.getElementById('batch-emails-input');
   const confirmBtn = document.getElementById('batch-modal-confirm');
+  const confirmBtnText = confirmBtn?.querySelector('.batch-btn-text');
   const countInfo = document.getElementById('batch-count-info');
-  
-  if (!modal || !icon || !title || !message) return;
-  
-  // 设置标题和提示信息
-  if (action === 'allow') {
-    icon.textContent = '✅';
-    icon.className = 'modal-icon unlock';
-    title.textContent = '批量放行邮箱登录';
-    message.textContent = '请输入需要放行登录的邮箱地址，每行一个。确认后这些邮箱将允许登录系统。';
-    confirmBtn.className = 'btn btn-primary';
-  } else {
-    icon.textContent = '🚫';
-    icon.className = 'modal-icon lock';
-    title.textContent = '批量禁止邮箱登录';
-    message.textContent = '请输入需要禁止登录的邮箱地址，每行一个。确认后这些邮箱将无法登录系统。';
-    confirmBtn.className = 'btn btn-danger';
-  }
-  
-  // 重置输入框
+
+  if (!modal || !icon || !title || !message || !textarea || !confirmBtn || !confirmBtnText || !countInfo) return;
+
+  const config = getBatchActionConfig(action);
+  icon.textContent = config.icon;
+  icon.className = config.iconClass;
+  title.textContent = config.title;
+  message.textContent = config.message;
+  confirmBtn.className = config.confirmClass;
+  confirmBtnText.textContent = config.confirmText;
+
   textarea.value = '';
   confirmBtn.disabled = true;
   countInfo.textContent = '输入邮箱后将显示数量统计';
-  
-  // 显示模态框
+  countInfo.style.color = '#64748b';
+
   modal.style.display = 'flex';
 }
 
@@ -1544,14 +1576,21 @@ function showBatchLoginModal(action) {
 function closeBatchLoginModal() {
   const modal = document.getElementById('batch-login-modal');
   const textarea = document.getElementById('batch-emails-input');
-  
-  if (modal) {
-    modal.style.display = 'none';
+  const countInfo = document.getElementById('batch-count-info');
+  const confirmBtn = document.getElementById('batch-modal-confirm');
+  const confirmBtnText = confirmBtn?.querySelector('.batch-btn-text');
+  const btnLoading = confirmBtn?.querySelector('.batch-btn-loading');
+
+  if (modal) modal.style.display = 'none';
+  if (textarea) textarea.value = '';
+  if (countInfo) {
+    countInfo.textContent = '输入邮箱后将显示数量统计';
+    countInfo.style.color = '#64748b';
   }
-  if (textarea) {
-    textarea.value = '';
-  }
-  
+  if (confirmBtn) confirmBtn.disabled = true;
+  if (confirmBtnText) confirmBtnText.textContent = '确认操作';
+  if (btnLoading) btnLoading.textContent = '处理中...';
+
   currentBatchAction = null;
 }
 
@@ -1614,6 +1653,7 @@ async function performBatchLoginOperation() {
   if (!textarea || !confirmBtn) return;
   
   const emails = parseEmailList(textarea.value);
+  const config = getBatchActionConfig(currentBatchAction);
   
   if (emails.length === 0) {
     showToast('请输入有效的邮箱地址', 'warn');
@@ -1624,20 +1664,27 @@ async function performBatchLoginOperation() {
     batchOperationInProgress = true;
     confirmBtn.disabled = true;
     if (btnText) btnText.style.display = 'none';
-    if (btnLoading) btnLoading.style.display = 'inline';
-    
-    const canLogin = currentBatchAction === 'allow';
-    const actionText = canLogin ? '放行' : '禁止';
-    
-    // 调用批量API
-    const response = await fetch('/api/mailboxes/batch-toggle-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        addresses: emails, 
-        can_login: canLogin 
-      })
-    });
+    if (btnLoading) {
+      btnLoading.textContent = config.loadingText;
+      btnLoading.style.display = 'inline';
+    }
+
+    const isDeleteAction = currentBatchAction === 'delete';
+    const response = await fetch(
+      isDeleteAction ? '/api/mailboxes/batch-delete' : '/api/mailboxes/batch-toggle-login',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isDeleteAction
+            ? { addresses: emails }
+            : {
+                addresses: emails,
+                can_login: currentBatchAction === 'allow'
+              }
+        )
+      }
+    );
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -1649,14 +1696,12 @@ async function performBatchLoginOperation() {
     // 显示结果
     const successCount = result.success_count || 0;
     const failCount = result.fail_count || 0;
-    const totalCount = emails.length;
-    
     if (successCount > 0 && failCount === 0) {
-      showToast(`成功${actionText} ${successCount} 个邮箱`, 'success');
+      showToast(`成功${config.successText} ${successCount} 个邮箱`, 'success');
     } else if (successCount > 0 && failCount > 0) {
-      showToast(`成功${actionText} ${successCount} 个邮箱，失败 ${failCount} 个`, 'warn');
+      showToast(`成功${config.successText} ${successCount} 个邮箱，失败 ${failCount} 个`, 'warn');
     } else {
-      showToast(`${actionText}失败，请检查邮箱地址`, 'error');
+      showToast(`${config.successText}失败，请检查邮箱地址`, 'error');
     }
     
     // 关闭模态框并刷新列表
@@ -1679,6 +1724,7 @@ async function performBatchLoginOperation() {
 // 绑定批量操作按钮事件
 const batchAllowBtn = document.getElementById('batch-allow');
 const batchDenyBtn = document.getElementById('batch-deny');
+const batchDeleteBtn = document.getElementById('batch-delete');
 
 if (batchAllowBtn) {
   batchAllowBtn.addEventListener('click', () => showBatchLoginModal('allow'));
@@ -1686,6 +1732,10 @@ if (batchAllowBtn) {
 
 if (batchDenyBtn) {
   batchDenyBtn.addEventListener('click', () => showBatchLoginModal('deny'));
+}
+
+if (batchDeleteBtn) {
+  batchDeleteBtn.addEventListener('click', () => showBatchLoginModal('delete'));
 }
 
 // 绑定批量模态框事件
