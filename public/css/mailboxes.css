@@ -30,7 +30,7 @@
 .mailbox-card{
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   width: 280px;
   height: 140px;
   padding: 12px;
@@ -42,6 +42,25 @@
   box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.mailbox-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+}
+
+.mailbox-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding-right: 96px;
+  box-sizing: border-box;
 }
 
 .mailbox-card.selected,
@@ -75,7 +94,7 @@
   overflow: hidden; 
   text-overflow: ellipsis; 
   width: 100%;
-  max-width: 256px; /* 280px - 24px padding */
+  max-width: 100%;
 }
 
 .mailbox-card .addr{ 
@@ -86,7 +105,7 @@
   overflow: hidden; 
   text-overflow: ellipsis; 
   width: 100%;
-  max-width: 256px; /* 280px - 24px padding */
+  max-width: 100%;
   cursor: help;
   transition: all 0.2s ease;
 }
@@ -121,9 +140,6 @@
 
 /* 置顶标识 - 右上角显示 */
 .mailbox-card .pin-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: white;
   width: 24px;
@@ -145,18 +161,23 @@
 }
 
 .mailbox-select {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  z-index: 12;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .mailbox-select-checkbox {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   accent-color: #dc2626;
   cursor: pointer;
@@ -186,11 +207,6 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.6);
-}
-
-/* 当有置顶标识时，操作按钮稍微往下移动 */
-.mailbox-card:has(.pin-badge) .actions {
-  top: 60%;
 }
 
 .mailbox-card:hover .actions{ 
@@ -486,9 +502,8 @@
   .mailbox-card{
     width: 260px;
   }
-  .mailbox-card .line,
-  .mailbox-card .addr{
-    max-width: 236px; /* 260px - 24px padding */
+  .mailbox-card-main{
+    padding-right: 96px;
   }
   
   /* 加载占位符响应式 */
@@ -510,10 +525,16 @@
     height: 120px;
     padding: 10px;
   }
+  .mailbox-card-head{
+    min-height: 26px;
+  }
   .mailbox-card .line,
   .mailbox-card .addr{
-    max-width: 220px; /* 240px - 20px padding */
+    max-width: 100%;
     font-size: 11px;
+  }
+  .mailbox-card-main{
+    padding-right: 84px;
   }
   .mailbox-card .addr{
     font-size: 13px;
@@ -543,7 +564,10 @@
   }
   .mailbox-card .line,
   .mailbox-card .addr{
-    max-width: calc(100% - 24px);
+    max-width: 100%;
+  }
+  .mailbox-card-main{
+    padding-right: 84px;
   }
   
   /* 加载占位符响应式 */
@@ -1010,6 +1034,16 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.88);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  touch-action: manipulation;
 }
 
 .mailbox-list-item:hover {

@@ -113,14 +113,27 @@ function syncSelectedMailboxesWithCurrentData() {
 function renderGrid(items){
   return items.map(x => `
     <div class="mailbox-card ${selectedMailboxAddresses.has(x.address) ? 'selected' : ''}" data-address="${x.address}">
-      <div class="mailbox-select">
-        <input type="checkbox" class="mailbox-select-checkbox" data-address="${x.address}" ${selectedMailboxAddresses.has(x.address) ? 'checked' : ''} title="选择邮箱 ${x.address}" />
+      <div class="mailbox-card-head">
+        <label class="mailbox-select" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()">
+          <input
+            type="checkbox"
+            class="mailbox-select-checkbox"
+            data-address="${x.address}"
+            ${selectedMailboxAddresses.has(x.address) ? 'checked' : ''}
+            title="选择邮箱 ${x.address}"
+            aria-label="选择邮箱 ${x.address}"
+            onclick="event.stopPropagation()"
+            onpointerdown="event.stopPropagation()"
+          />
+        </label>
+        ${x.is_pinned ? '<div class="pin-badge" title="已置顶">📌</div>' : ''}
       </div>
-      <div class="line addr" title="${x.address}">${x.address}</div>
-      <div class="line pwd" title="${x.password_is_default ? '默认密码（邮箱本身）' : '自定义密码'}">密码：${x.password_is_default ? '默认' : '自定义'}</div>
-      <div class="line login" title="邮箱登录权限">登录：${x.can_login ? '<span style="color:#16a34a">&#10003;允许</span>' : '<span style="color:#dc2626">&#10007;禁止</span>'}</div>
-      <div class="line time" title="${fmt(x.created_at)}">创建：${fmt(x.created_at)}</div>
-      ${x.is_pinned ? '<div class="pin-badge" title="已置顶">📌</div>' : ''}
+      <div class="mailbox-card-main">
+        <div class="line addr" title="${x.address}">${x.address}</div>
+        <div class="line pwd" title="${x.password_is_default ? '默认密码（邮箱本身）' : '自定义密码'}">密码：${x.password_is_default ? '默认' : '自定义'}</div>
+        <div class="line login" title="邮箱登录权限">登录：${x.can_login ? '<span style="color:#16a34a">&#10003;允许</span>' : '<span style="color:#dc2626">&#10007;禁止</span>'}</div>
+        <div class="line time" title="${fmt(x.created_at)}">创建：${fmt(x.created_at)}</div>
+      </div>
       <div class="actions">
         <button class="btn-icon" title="复制邮箱" onclick="event.stopPropagation(); copyMailboxAddressFromList('${x.address}')">📋</button>
         <button class="btn-icon ${x.can_login ? 'active' : ''}" title="${x.can_login ? '禁止邮箱登录' : '允许邮箱登录'}" onclick="event.stopPropagation(); toggleMailboxLogin('${x.address}', ${!x.can_login})">${x.can_login ? '🔓' : '🔒'}</button>
@@ -132,9 +145,18 @@ function renderGrid(items){
 function renderList(items){
   return items.map(x => `
     <div class="mailbox-list-item ${selectedMailboxAddresses.has(x.address) ? 'selected' : ''}" data-address="${x.address}">
-      <div class="mailbox-list-select">
-        <input type="checkbox" class="mailbox-select-checkbox" data-address="${x.address}" ${selectedMailboxAddresses.has(x.address) ? 'checked' : ''} title="选择邮箱 ${x.address}" />
-      </div>
+      <label class="mailbox-list-select" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()">
+        <input
+          type="checkbox"
+          class="mailbox-select-checkbox"
+          data-address="${x.address}"
+          ${selectedMailboxAddresses.has(x.address) ? 'checked' : ''}
+          title="选择邮箱 ${x.address}"
+          aria-label="选择邮箱 ${x.address}"
+          onclick="event.stopPropagation()"
+          onpointerdown="event.stopPropagation()"
+        />
+      </label>
       <div class="pin-indicator">
         ${x.is_pinned ? '<span class="pin-icon" title="已置顶">📌</span>' : '<span class="pin-placeholder"></span>'}
       </div>
@@ -509,13 +531,29 @@ function initViewToggle() {
 // 初始化视图切换
 initViewToggle();
 
+function isMailboxCardInteractiveTarget(target) {
+  return Boolean(
+    target.closest('.actions, .list-actions, .mailbox-select, .mailbox-list-select, .mailbox-select-checkbox, button, input, select, textarea, a')
+  );
+}
+
+function isMailboxSelectionTarget(target) {
+  return Boolean(target.closest('.mailbox-select, .mailbox-list-select, .mailbox-select-checkbox'));
+}
+
 // 设置动画清理监听器
 setupAnimationCleanupListeners();
+
 
 // 邮箱卡片点击事件委托
 els.grid.addEventListener('click', function(event) {
   const card = event.target.closest('.mailbox-card, .mailbox-list-item');
   if (!card) return;
+  if (isMailboxSelectionTarget(event.target)) {
+    event.stopPropagation();
+    return;
+  }
+  if (isMailboxCardInteractiveTarget(event.target)) return;
   
   // 检查是否点击的是操作按钮区域
   if (event.target.closest('.actions, .list-actions, .mailbox-select, .mailbox-list-select')) {
@@ -526,6 +564,11 @@ els.grid.addEventListener('click', function(event) {
   if (address) {
     selectAndGoToHomepage(address, event);
   }
+});
+
+els.grid.addEventListener('pointerdown', function(event) {
+  if (!isMailboxSelectionTarget(event.target)) return;
+  event.stopPropagation();
 });
 
 els.grid.addEventListener('change', function(event) {
