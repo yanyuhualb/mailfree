@@ -1157,7 +1157,7 @@ body::before{
 }
 
 .mailbox-item.pinned::after{
-  content: '📌';
+  content: '\1F4CC';
   position: absolute;
   top: 4px;
   left: 4px;

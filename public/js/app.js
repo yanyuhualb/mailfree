@@ -220,6 +220,7 @@ function renderMailboxItem(item = {}){
   const address = String(item.address || '');
   const safeAddress = escapeInlineArg(address);
   const sourceTag = normalizeMailboxSourceTag(item.source_tag);
+  const pinIcon = item.is_pinned ? '&#128204;' : '&#128392;';
   return `<div class="mailbox-item ${item.is_pinned ? 'pinned' : ''}" onclick="selectMailbox('${safeAddress}')">
     <div class="mailbox-content">
       <span class="address">${address}</span>
@@ -230,9 +231,11 @@ function renderMailboxItem(item = {}){
     </div>
     <div class="mailbox-actions">
       <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${safeAddress}')" title="${item.is_pinned ? '取消置顶' : '置顶'}">
-        ${item.is_pinned ? '??' : '??'}
+        <span aria-hidden="true">${pinIcon}</span>
       </button>
-      <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${safeAddress}')" title="删除">???</button>
+      <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${safeAddress}')" title="删除">
+        <span aria-hidden="true">&#128465;</span>
+      </button>
     </div>
   </div>`;
 }
@@ -685,8 +688,8 @@ if (els.createCustomOverlay){
               <span class="time">${formatTs(createdAt)}</span>
             </div>
             <div class="mailbox-actions">
-              <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${data.email}')" title="置顶">📍</button>
-              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${data.email}')" title="删除">🗑️</button>
+              <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${data.email}')" title="置顶"><span aria-hidden="true">&#128392;</span></button>
+              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${data.email}')" title="删除"><span aria-hidden="true">&#128465;</span></button>
             </div>
           </div>`;
         if (els.mbList){
@@ -896,8 +899,8 @@ els.gen.onclick = async () => {
             <span class="time">${formatTs(createdAt)}</span>
           </div>
           <div class="mailbox-actions">
-            <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${data.email}')" title="置顶">📍</button>
-            <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${data.email}')" title="删除">🗑️</button>
+            <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${data.email}')" title="置顶"><span aria-hidden="true">&#128392;</span></button>
+            <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${data.email}')" title="删除"><span aria-hidden="true">&#128465;</span></button>
           </div>
         </div>`;
       if (els.mbList){
@@ -981,8 +984,8 @@ if (els.genName) {
               <span class="time">${formatTs(createdAt)}</span>
             </div>
             <div class="mailbox-actions">
-              <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${data.email}')" title="置顶">📍</button>
-              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${data.email}')" title="删除">🗑️</button>
+              <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${data.email}')" title="置顶"><span aria-hidden="true">&#128392;</span></button>
+              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${data.email}')" title="删除"><span aria-hidden="true">&#128465;</span></button>
             </div>
           </div>`;
         if (els.mbList) {
@@ -1681,9 +1684,9 @@ async function loadMailboxes(options = {}){
             </div>
             <div class="mailbox-actions">
               <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${x.address}')" title="${x.is_pinned ? '取消置顶' : '置顶'}">
-                ${x.is_pinned ? '📌' : '📍'}
+                <span aria-hidden="true">${x.is_pinned ? '&#128204;' : '&#128392;'}</span>
               </button>
-              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${x.address}')" title="删除">🗑️</button>
+              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${x.address}')" title="删除"><span aria-hidden="true">&#128465;</span></button>
             </div>
           </div>`
         )).join('');
@@ -1703,9 +1706,9 @@ async function loadMailboxes(options = {}){
             </div>
             <div class="mailbox-actions">
               <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${x.address}')" title="${x.is_pinned ? '取消置顶' : '置顶'}">
-                ${x.is_pinned ? '📌' : '📍'}
+                <span aria-hidden="true">${x.is_pinned ? '&#128204;' : '&#128392;'}</span>
               </button>
-              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${x.address}')" title="删除">🗑️</button>
+              <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${x.address}')" title="删除"><span aria-hidden="true">&#128465;</span></button>
             </div>
           </div>`
         )).join('');
@@ -1742,9 +1745,9 @@ async function loadMailboxes(options = {}){
         </div>
         <div class="mailbox-actions">
           <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${x.address}')" title="${x.is_pinned ? '取消置顶' : '置顶'}">
-            ${x.is_pinned ? '📌' : '📍'}
+            <span aria-hidden="true">${x.is_pinned ? '&#128204;' : '&#128392;'}</span>
           </button>
-          <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${x.address}')" title="删除">🗑️</button>
+          <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${x.address}')" title="删除"><span aria-hidden="true">&#128465;</span></button>
         </div>
       </div>`
     )).join('');
