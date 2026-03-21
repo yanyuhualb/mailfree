@@ -236,10 +236,10 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
       try {
         const payload = getJwtPayload();
         if (payload?.userId) {
-          await assignMailboxToUser(db, { userId: payload.userId, address: email });
+          await assignMailboxToUser(db, { userId: payload.userId, address: email, sourceTag: 'api' });
           return Response.json({ email, expires: Date.now() + 3600000 });
         }
-        await getOrCreateMailboxId(db, email);
+        await getOrCreateMailboxId(db, email, 'api');
         return Response.json({ email, expires: Date.now() + 3600000 });
       } catch (e) {
         return new Response(String(e?.message || '创建失败'), { status: 400 });
@@ -382,11 +382,11 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
         // 邮箱不存在，可以创建
         if (userId) {
           // 普通用户：通过assignMailboxToUser创建并分配
-          await assignMailboxToUser(db, { userId: userId, address: email });
+          await assignMailboxToUser(db, { userId: userId, address: email, sourceTag: 'manual' });
           return Response.json({ email, expires: Date.now() + 3600000 });
         } else {
           // 超级管理员：直接创建邮箱
-          await getOrCreateMailboxId(db, email);
+          await getOrCreateMailboxId(db, email, 'manual');
           return Response.json({ email, expires: Date.now() + 3600000 });
         }
       }catch(e){ 
@@ -733,9 +733,25 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
     const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10), 0);
     const q = String(url.searchParams.get('q') || '').trim().toLowerCase();
     const domain = String(url.searchParams.get('domain') || '').trim().toLowerCase();
+    const sourceTag = String(url.searchParams.get('source_tag') || '').trim().toLowerCase();
     const canLoginParam = String(url.searchParams.get('can_login') || '').trim();
     if (isMock) {
-      return Response.json(buildMockMailboxes(limit, offset, mailDomains));
+      let items = buildMockMailboxes(Math.max(limit + offset, 20), 0, mailDomains);
+      if (q) {
+        items = items.filter(item => String(item.address || '').toLowerCase().includes(q));
+      }
+      if (domain) {
+        items = items.filter(item => String(item.address || '').toLowerCase().endsWith(`@${domain}`));
+      }
+      if (sourceTag && ['manual', 'api', 'unknown'].includes(sourceTag)) {
+        items = items.filter(item => String(item.source_tag || 'unknown').toLowerCase() === sourceTag);
+      }
+      if (canLoginParam === 'true') {
+        items = items.filter(item => Number(item.can_login || 0) === 1);
+      } else if (canLoginParam === 'false') {
+        items = items.filter(item => Number(item.can_login || 0) === 0);
+      }
+      return Response.json(items.slice(offset, offset + limit));
     }
     // 超级管理员（严格管理员）可查看全部；其他仅查看自身绑定
     try{
@@ -760,6 +776,11 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
           whereConditions.push('LOWER(m.address) LIKE LOWER(?)');
           bindParams.push(`%@${domain}`);
         }
+
+        if (sourceTag && ['manual', 'api', 'unknown'].includes(sourceTag)) {
+          whereConditions.push('COALESCE(m.source_tag, ?) = ?');
+          bindParams.push('unknown', sourceTag);
+        }
         
         // 登录权限筛选
         if (canLoginParam === 'true') {
@@ -774,7 +795,8 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
         const { results } = await db.prepare(`
           SELECT m.address, m.created_at, COALESCE(um.is_pinned, 0) AS is_pinned,
                  CASE WHEN (m.password_hash IS NULL OR m.password_hash = '') THEN 1 ELSE 0 END AS password_is_default,
-                 COALESCE(m.can_login, 0) AS can_login
+                 COALESCE(m.can_login, 0) AS can_login,
+                 COALESCE(m.source_tag, 'unknown') AS source_tag
           FROM mailboxes m
           LEFT JOIN user_mailboxes um ON um.mailbox_id = m.id AND um.user_id = ?
           ${whereClause}
@@ -803,6 +825,11 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
         whereConditions.push('LOWER(m.address) LIKE LOWER(?)');
         bindParams.push(`%@${domain}`);
       }
+
+      if (sourceTag && ['manual', 'api', 'unknown'].includes(sourceTag)) {
+        whereConditions.push('COALESCE(m.source_tag, ?) = ?');
+        bindParams.push('unknown', sourceTag);
+      }
       
       // 登录权限筛选
       if (canLoginParam === 'true') {
@@ -817,7 +844,8 @@ export async function handleApiRequest(request, db, mailDomains, options = { moc
       const { results } = await db.prepare(`
         SELECT m.address, m.created_at, um.is_pinned,
                CASE WHEN (m.password_hash IS NULL OR m.password_hash = '') THEN 1 ELSE 0 END AS password_is_default,
-               COALESCE(m.can_login, 0) AS can_login
+               COALESCE(m.can_login, 0) AS can_login,
+               COALESCE(m.source_tag, 'unknown') AS source_tag
         FROM user_mailboxes um
         JOIN mailboxes m ON m.id = um.mailbox_id
         ${whereClause}

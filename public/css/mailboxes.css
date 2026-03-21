@@ -44,6 +44,13 @@
   transition: all 0.2s ease;
 }
 
+.mailbox-card.selected,
+.mailbox-list-item.selected {
+  border-color: rgba(239, 68, 68, 0.38);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12), var(--shadow-glass);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(254, 242, 242, 0.95) 100%);
+}
+
 .mailbox-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
@@ -135,6 +142,24 @@
 .mailbox-card .pin-badge:hover {
   transform: scale(1.1) rotate(15deg);
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.6);
+}
+
+.mailbox-select {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mailbox-select-checkbox {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #dc2626;
+  cursor: pointer;
 }
 
 /* 悬停操作区 - 1x2 水平布局 */
@@ -909,6 +934,44 @@
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
 }
 
+.batch-actions #batch-delete:disabled {
+  color: #94a3b8;
+  border-color: rgba(226, 232, 240, 0.8);
+  box-shadow: none;
+}
+
+.selected-mailbox-preview {
+  padding: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.7) 100%);
+}
+
+.selected-mailbox-preview-title {
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.selected-mailbox-preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.selected-mailbox-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  color: #1e293b;
+  font-size: 13px;
+  word-break: break-all;
+}
+
 /* 列表视图样式 */
 .page-mailboxes #grid.list {
   display: flex;
@@ -941,6 +1004,12 @@
   cursor: pointer;
   transition: all 0.2s ease;
   min-height: 60px;
+}
+
+.mailbox-list-select {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .mailbox-list-item:hover {

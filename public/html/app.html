@@ -43,6 +43,15 @@
       </div>
       <div class="sidebar-search">
         <input id="mb-search" class="input sidebar-search-input" placeholder="搜索历史邮箱" />
+        <div class="sidebar-filter-row">
+          <label class="sidebar-filter-label" for="mb-tag-filter">来源</label>
+          <select id="mb-tag-filter" class="select sidebar-filter-select">
+            <option value="">全部</option>
+            <option value="manual">手动生成</option>
+            <option value="api">API生成</option>
+            <option value="unknown">未标记</option>
+          </select>
+        </div>
       </div>
       <div id="mb-list"></div>
       <div id="mb-loading" style="margin-top:12px"></div>

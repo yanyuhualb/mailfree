@@ -53,8 +53,8 @@
             <button id="batch-deny" class="btn btn-ghost btn-sm" title="批量禁止邮箱登录">
               <span class="btn-icon">🚫</span><span>批量禁止</span>
             </button>
-            <button id="batch-delete" class="btn btn-ghost btn-sm" title="批量删除已创建邮箱">
-              <span class="btn-icon">🗑️</span><span>批量删除</span>
+            <button id="batch-delete" class="btn btn-ghost btn-sm" title="批量删除已创建邮箱" disabled>
+              <span class="btn-icon">🗑️</span><span id="batch-delete-text">批量删除</span>
             </button>
           </div>
           <div class="view-toggle">
@@ -197,6 +197,32 @@
           <button id="batch-modal-confirm" class="btn btn-primary" disabled>
             <span class="batch-btn-text">确定操作</span>
             <span class="batch-btn-loading" style="display:none;">处理中...</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="batch-delete-modal" style="display:none">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="modal-icon delete">🗑️</span>
+          <span>批量删除邮箱</span>
+        </div>
+        <button id="batch-delete-close" class="close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="batch-delete-message" style="margin:0 0 12px 0;color:#334155"></p>
+        <div class="selected-mailbox-preview">
+          <div class="selected-mailbox-preview-title">将删除以下邮箱</div>
+          <div id="batch-delete-preview" class="selected-mailbox-preview-list"></div>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:12px;justify-content:flex-end">
+          <button id="batch-delete-cancel" class="btn btn-secondary">取消</button>
+          <button id="batch-delete-confirm" class="btn btn-danger">
+            <span class="batch-delete-btn-text">确认删除</span>
+            <span class="batch-delete-btn-loading" style="display:none;">删除中...</span>
           </button>
         </div>
       </div>

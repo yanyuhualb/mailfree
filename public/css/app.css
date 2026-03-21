@@ -292,7 +292,12 @@ body::before{
 }
 
 /* 历史邮箱搜索框样式 */
-.sidebar-search{ margin: 6px 0 10px; }
+.sidebar-search{
+  margin: 6px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .sidebar-search-input{
   width: 100%;
   height: 36px;
@@ -304,6 +309,25 @@ body::before{
 }
 .sidebar-search-input::placeholder{ color: var(--muted2); }
 .sidebar-search-input:focus{ outline:none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,.15); background: #fff; }
+.sidebar-filter-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar-filter-label{
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+.sidebar-filter-select{
+  min-width: 0;
+  width: 100%;
+  height: 36px;
+  padding: 7px 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
 
 /* 更细、更透明的滚动条（Chromium/WebKit） */
 .sidebar::-webkit-scrollbar{ width: 8px; height: 8px; }
@@ -1159,6 +1183,13 @@ body::before{
   margin-right: 8px;
 }
 
+.mailbox-meta{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .mailbox-item .mailbox-actions{
   display: flex;
   gap: 4px;
@@ -1234,6 +1265,37 @@ body::before{
   color: var(--muted2);
   font-size: 10px;
   opacity: 0.8;
+}
+
+.mailbox-source-tag{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.mailbox-source-tag.source-tag-manual{
+  color: #0f766e;
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.24);
+}
+
+.mailbox-source-tag.source-tag-api{
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.24);
+}
+
+.mailbox-source-tag.source-tag-unknown{
+  color: #7c3aed;
+  background: rgba(139, 92, 246, 0.12);
+  border-color: rgba(139, 92, 246, 0.24);
 }
 
 .mailbox-item .mailbox-actions .del{
@@ -2671,6 +2733,25 @@ select:disabled{
   
   .mailbox-item .time{
     font-size: 10px;
+  }
+
+  .sidebar-filter-row{
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sidebar-filter-select{
+    width: 100%;
+  }
+
+  .mailbox-meta{
+    gap: 4px;
+  }
+
+  .mailbox-source-tag{
+    font-size: 9px;
+    padding: 2px 6px;
   }
 }
 

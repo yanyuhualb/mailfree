@@ -20,6 +20,7 @@ export async function initDatabase(db) {
     } else {
       // 非首次启动时确保外键约束开启
       await db.exec(`PRAGMA foreign_keys = ON;`);
+      await ensureMailboxSourceTagColumn(db);
     }
   } catch (error) {
     console.error('数据库初始化失败:', error);
@@ -41,6 +42,7 @@ async function performFirstTimeSetup(db) {
     await db.prepare('SELECT 1 FROM user_mailboxes LIMIT 1').all();
     await db.prepare('SELECT 1 FROM sent_emails LIMIT 1').all();
     // 所有5个必要表都存在，跳过创建
+    await ensureMailboxSourceTagColumn(db);
     return;
   } catch (e) {
     // 有表不存在，继续初始化
@@ -51,7 +53,7 @@ async function performFirstTimeSetup(db) {
   await db.exec(`PRAGMA foreign_keys = OFF;`);
   
   // 创建表结构（仅在表不存在时）
-  await db.exec("CREATE TABLE IF NOT EXISTS mailboxes (id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT NOT NULL UNIQUE, local_part TEXT NOT NULL, domain TEXT NOT NULL, password_hash TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, last_accessed_at TEXT, expires_at TEXT, is_pinned INTEGER DEFAULT 0, can_login INTEGER DEFAULT 0);");
+  await db.exec("CREATE TABLE IF NOT EXISTS mailboxes (id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT NOT NULL UNIQUE, local_part TEXT NOT NULL, domain TEXT NOT NULL, password_hash TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, last_accessed_at TEXT, expires_at TEXT, is_pinned INTEGER DEFAULT 0, can_login INTEGER DEFAULT 0, source_tag TEXT NOT NULL DEFAULT 'unknown');");
   await db.exec("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, mailbox_id INTEGER NOT NULL, sender TEXT NOT NULL, to_addrs TEXT NOT NULL DEFAULT '', subject TEXT NOT NULL, verification_code TEXT, preview TEXT, r2_bucket TEXT NOT NULL DEFAULT 'mail-eml', r2_object_key TEXT NOT NULL DEFAULT '', received_at TEXT DEFAULT CURRENT_TIMESTAMP, is_read INTEGER DEFAULT 0, FOREIGN KEY(mailbox_id) REFERENCES mailboxes(id));");
   await db.exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT, role TEXT NOT NULL DEFAULT 'user', can_send INTEGER NOT NULL DEFAULT 0, mailbox_limit INTEGER NOT NULL DEFAULT 10, created_at TEXT DEFAULT CURRENT_TIMESTAMP);");
   await db.exec("CREATE TABLE IF NOT EXISTS user_mailboxes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, mailbox_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, is_pinned INTEGER NOT NULL DEFAULT 0, UNIQUE(user_id, mailbox_id), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(mailbox_id) REFERENCES mailboxes(id) ON DELETE CASCADE);");
@@ -77,6 +79,7 @@ async function performFirstTimeSetup(db) {
   
   // 重新启用外键约束
   await db.exec(`PRAGMA foreign_keys = ON;`);
+  await ensureMailboxSourceTagColumn(db);
 }
 
 /**
@@ -101,7 +104,8 @@ export async function setupDatabase(db) {
       last_accessed_at TEXT,
       expires_at TEXT,
       is_pinned INTEGER DEFAULT 0,
-      can_login INTEGER DEFAULT 0
+      can_login INTEGER DEFAULT 0,
+      source_tag TEXT NOT NULL DEFAULT 'unknown'
     );
   `);
   
@@ -184,6 +188,21 @@ export async function setupDatabase(db) {
   
   // 重新启用外键约束
   await db.exec(`PRAGMA foreign_keys = ON;`);
+  await ensureMailboxSourceTagColumn(db);
+}
+
+async function ensureMailboxSourceTagColumn(db) {
+  try {
+    const info = await db.prepare(`PRAGMA table_info(mailboxes)`).all();
+    const columns = info?.results || [];
+    const hasSourceTag = columns.some(col => String(col.name || '').toLowerCase() === 'source_tag');
+    if (!hasSourceTag) {
+      await db.exec(`ALTER TABLE mailboxes ADD COLUMN source_tag TEXT NOT NULL DEFAULT 'unknown';`);
+    }
+  } catch (error) {
+    console.error('确保 mailboxes.source_tag 字段存在失败:', error);
+    throw error;
+  }
 }
 
 /**
@@ -193,7 +212,7 @@ export async function setupDatabase(db) {
  * @returns {Promise<number>} 邮箱ID
  * @throws {Error} 当邮箱地址无效时抛出异常
  */
-export async function getOrCreateMailboxId(db, address) {
+export async function getOrCreateMailboxId(db, address, sourceTag = 'unknown') {
   const { getCachedMailboxId, updateMailboxIdCache } = await import('./cacheHelper.js');
   
   const normalized = String(address || '').trim().toLowerCase();
@@ -219,18 +238,26 @@ export async function getOrCreateMailboxId(db, address) {
   if (!local_part || !domain) throw new Error('无效的邮箱地址');
   
   // 再次查询数据库（避免并发创建）
-  const existing = await db.prepare('SELECT id FROM mailboxes WHERE address = ? LIMIT 1').bind(normalized).all();
+  const normalizedSourceTag = ['manual', 'api'].includes(String(sourceTag || '').toLowerCase())
+    ? String(sourceTag).toLowerCase()
+    : 'unknown';
+
+  const existing = await db.prepare('SELECT id, source_tag FROM mailboxes WHERE address = ? LIMIT 1').bind(normalized).all();
   if (existing.results && existing.results.length > 0) {
-    const id = existing.results[0].id;
+    const row = existing.results[0];
+    const id = row.id;
     updateMailboxIdCache(normalized, id);
     await db.prepare('UPDATE mailboxes SET last_accessed_at = CURRENT_TIMESTAMP WHERE id = ?').bind(id).run();
+    if (normalizedSourceTag !== 'unknown' && (!row.source_tag || row.source_tag === 'unknown')) {
+      await db.prepare('UPDATE mailboxes SET source_tag = ? WHERE id = ?').bind(normalizedSourceTag, id).run();
+    }
     return id;
   }
   
   // 创建新邮箱
   await db.prepare(
-    'INSERT INTO mailboxes (address, local_part, domain, password_hash, last_accessed_at) VALUES (?, ?, ?, NULL, CURRENT_TIMESTAMP)'
-  ).bind(normalized, local_part, domain).run();
+    'INSERT INTO mailboxes (address, local_part, domain, password_hash, last_accessed_at, source_tag) VALUES (?, ?, ?, NULL, CURRENT_TIMESTAMP, ?)'
+  ).bind(normalized, local_part, domain, normalizedSourceTag).run();
   
   // 查询新创建的ID
   const created = await db.prepare('SELECT id FROM mailboxes WHERE address = ? LIMIT 1').bind(normalized).all();
@@ -572,13 +599,13 @@ export async function listUsersWithCounts(db, { limit = 50, offset = 0, sort = '
  * @returns {Promise<object>} 分配结果对象
  * @throws {Error} 当邮箱地址无效、用户不存在或达到邮箱上限时抛出异常
  */
-export async function assignMailboxToUser(db, { userId = null, username = null, address }){
+export async function assignMailboxToUser(db, { userId = null, username = null, address, sourceTag = 'unknown' }){
   const { getCachedUserQuota, invalidateUserQuotaCache } = await import('./cacheHelper.js');
   
   const normalized = String(address || '').trim().toLowerCase();
   if (!normalized) throw new Error('邮箱地址无效');
   // 查询或创建邮箱
-  const mailboxId = await getOrCreateMailboxId(db, normalized);
+  const mailboxId = await getOrCreateMailboxId(db, normalized, sourceTag);
 
   // 获取用户 ID
   let uid = userId;

@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   last_accessed_at TEXT,
   expires_at TEXT,
   is_pinned INTEGER DEFAULT 0,
-  can_login INTEGER DEFAULT 0
+  can_login INTEGER DEFAULT 0,
+  source_tag TEXT NOT NULL DEFAULT 'unknown'
 );
 
 -- 邮件消息表

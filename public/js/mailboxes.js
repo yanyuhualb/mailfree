@@ -20,6 +20,7 @@ let page = 1;
 const PAGE_SIZE = 20; // 固定每页20（4列×5行）
 let lastCount = 0;
 let currentData = []; // 缓存当前显示的数据
+let selectedMailboxAddresses = new Set();
 
 // 视图模式：'grid' 或 'list'
 let currentView = localStorage.getItem('mf:mailboxes:view') || 'grid';
@@ -91,9 +92,30 @@ function fmt(ts){
   return new Intl.DateTimeFormat('zh-CN',{ timeZone:'Asia/Shanghai', hour12:false, year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' }).format(d);
 }
 
+function updateBatchDeleteButtonState() {
+  const batchDeleteBtn = document.getElementById('batch-delete');
+  const batchDeleteText = document.getElementById('batch-delete-text');
+  if (!batchDeleteBtn || !batchDeleteText) return;
+
+  const count = selectedMailboxAddresses.size;
+  batchDeleteBtn.disabled = count === 0;
+  batchDeleteText.textContent = count > 0 ? `批量删除 (${count})` : '批量删除';
+}
+
+function syncSelectedMailboxesWithCurrentData() {
+  const currentAddresses = new Set((currentData || []).map(item => item.address));
+  selectedMailboxAddresses = new Set(
+    Array.from(selectedMailboxAddresses).filter(address => currentAddresses.has(address))
+  );
+  updateBatchDeleteButtonState();
+}
+
 function renderGrid(items){
   return items.map(x => `
-    <div class="mailbox-card" data-address="${x.address}">
+    <div class="mailbox-card ${selectedMailboxAddresses.has(x.address) ? 'selected' : ''}" data-address="${x.address}">
+      <div class="mailbox-select">
+        <input type="checkbox" class="mailbox-select-checkbox" data-address="${x.address}" ${selectedMailboxAddresses.has(x.address) ? 'checked' : ''} title="选择邮箱 ${x.address}" />
+      </div>
       <div class="line addr" title="${x.address}">${x.address}</div>
       <div class="line pwd" title="${x.password_is_default ? '默认密码（邮箱本身）' : '自定义密码'}">密码：${x.password_is_default ? '默认' : '自定义'}</div>
       <div class="line login" title="邮箱登录权限">登录：${x.can_login ? '<span style="color:#16a34a">&#10003;允许</span>' : '<span style="color:#dc2626">&#10007;禁止</span>'}</div>
@@ -109,7 +131,10 @@ function renderGrid(items){
 
 function renderList(items){
   return items.map(x => `
-    <div class="mailbox-list-item" data-address="${x.address}">
+    <div class="mailbox-list-item ${selectedMailboxAddresses.has(x.address) ? 'selected' : ''}" data-address="${x.address}">
+      <div class="mailbox-list-select">
+        <input type="checkbox" class="mailbox-select-checkbox" data-address="${x.address}" ${selectedMailboxAddresses.has(x.address) ? 'checked' : ''} title="选择邮箱 ${x.address}" />
+      </div>
       <div class="pin-indicator">
         ${x.is_pinned ? '<span class="pin-icon" title="已置顶">📌</span>' : '<span class="pin-placeholder"></span>'}
       </div>
@@ -138,6 +163,7 @@ function render(items){
   
   // 缓存当前数据
   currentData = list;
+  syncSelectedMailboxesWithCurrentData();
   
   // 隐藏加载占位符
   els.loadingPlaceholder.classList.remove('show');
@@ -161,6 +187,7 @@ function render(items){
   
   // 控制空状态显示
   els.empty.style.display = list.length ? 'none' : 'flex';
+  updateBatchDeleteButtonState();
 }
 
 async function load(){
@@ -491,7 +518,7 @@ els.grid.addEventListener('click', function(event) {
   if (!card) return;
   
   // 检查是否点击的是操作按钮区域
-  if (event.target.closest('.actions, .list-actions')) {
+  if (event.target.closest('.actions, .list-actions, .mailbox-select, .mailbox-list-select')) {
     return; // 如果点击的是按钮区域，不处理
   }
   
@@ -499,6 +526,27 @@ els.grid.addEventListener('click', function(event) {
   if (address) {
     selectAndGoToHomepage(address, event);
   }
+});
+
+els.grid.addEventListener('change', function(event) {
+  const checkbox = event.target.closest('.mailbox-select-checkbox');
+  if (!checkbox) return;
+
+  const address = checkbox.dataset.address;
+  if (!address) return;
+
+  if (checkbox.checked) {
+    selectedMailboxAddresses.add(address);
+  } else {
+    selectedMailboxAddresses.delete(address);
+  }
+
+  const item = checkbox.closest('.mailbox-card, .mailbox-list-item');
+  if (item) {
+    item.classList.toggle('selected', checkbox.checked);
+  }
+
+  updateBatchDeleteButtonState();
 });
 
 // footer
@@ -1494,7 +1542,7 @@ window.selectAndGoToHomepage = function(address, event) {
 
 // 批量操作状态变量
 let batchOperationInProgress = false;
-let currentBatchAction = null; // 'allow' | 'deny' | 'delete'
+let currentBatchAction = null; // 'allow' | 'deny'
 
 function getBatchActionConfig(action) {
   if (action === 'allow') {
@@ -1523,21 +1571,12 @@ function getBatchActionConfig(action) {
     };
   }
 
-  return {
-    icon: '🗑️',
-    iconClass: 'modal-icon delete',
-    title: '批量删除邮箱',
-    message: '请输入需要删除的邮箱地址，每行一个。确认后将删除邮箱及其全部邮件，此操作不可恢复。',
-    confirmClass: 'btn btn-danger',
-    confirmText: '确认删除',
-    loadingText: '删除中...',
-    successText: '删除'
-  };
+  return null;
 }
 
 /**
  * 显示批量操作模态框
- * @param {string} action - 'allow' | 'deny' | 'delete'
+ * @param {string} action - 'allow' | 'deny'
  */
 function showBatchLoginModal(action) {
   if (batchOperationInProgress) return;
@@ -1555,6 +1594,7 @@ function showBatchLoginModal(action) {
   if (!modal || !icon || !title || !message || !textarea || !confirmBtn || !confirmBtnText || !countInfo) return;
 
   const config = getBatchActionConfig(action);
+  if (!config) return;
   icon.textContent = config.icon;
   icon.className = config.iconClass;
   title.textContent = config.title;
@@ -1592,6 +1632,102 @@ function closeBatchLoginModal() {
   if (btnLoading) btnLoading.textContent = '处理中...';
 
   currentBatchAction = null;
+}
+
+function showBatchDeleteConfirmModal() {
+  if (batchOperationInProgress) return;
+  if (selectedMailboxAddresses.size === 0) {
+    showToast('请先勾选要删除的邮箱', 'warn');
+    return;
+  }
+
+  const modal = document.getElementById('batch-delete-modal');
+  const message = document.getElementById('batch-delete-message');
+  const preview = document.getElementById('batch-delete-preview');
+  if (!modal || !message || !preview) return;
+
+  const selected = Array.from(selectedMailboxAddresses);
+  const previewItems = selected.map(address => `<div class="selected-mailbox-item">${address}</div>`).join('');
+
+  message.textContent = `已选择 ${selected.length} 个邮箱。确认后将删除这些邮箱及其全部邮件，此操作不可恢复。`;
+  preview.innerHTML = previewItems;
+  modal.style.display = 'flex';
+}
+
+function closeBatchDeleteConfirmModal() {
+  const modal = document.getElementById('batch-delete-modal');
+  const preview = document.getElementById('batch-delete-preview');
+  const confirmBtn = document.getElementById('batch-delete-confirm');
+  const btnText = confirmBtn?.querySelector('.batch-delete-btn-text');
+  const btnLoading = confirmBtn?.querySelector('.batch-delete-btn-loading');
+
+  if (modal) modal.style.display = 'none';
+  if (preview) preview.innerHTML = '';
+  if (confirmBtn) confirmBtn.disabled = false;
+  if (btnText) btnText.style.display = 'inline';
+  if (btnLoading) btnLoading.style.display = 'none';
+}
+
+async function performSelectedBatchDelete() {
+  if (batchOperationInProgress) return;
+
+  const selected = Array.from(selectedMailboxAddresses);
+  if (selected.length === 0) {
+    closeBatchDeleteConfirmModal();
+    showToast('请先勾选要删除的邮箱', 'warn');
+    return;
+  }
+
+  const confirmBtn = document.getElementById('batch-delete-confirm');
+  const btnText = confirmBtn?.querySelector('.batch-delete-btn-text');
+  const btnLoading = confirmBtn?.querySelector('.batch-delete-btn-loading');
+
+  try {
+    batchOperationInProgress = true;
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = 'inline';
+
+    const response = await fetch('/api/mailboxes/batch-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addresses: selected })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || '批量删除失败');
+    }
+
+    const result = await response.json();
+    const successCount = result.success_count || 0;
+    const failCount = result.fail_count || 0;
+
+    if (successCount > 0 && failCount === 0) {
+      showToast(`成功删除 ${successCount} 个邮箱`, 'success');
+    } else if (successCount > 0 && failCount > 0) {
+      showToast(`成功删除 ${successCount} 个邮箱，失败 ${failCount} 个`, 'warn');
+    } else {
+      showToast('删除失败，请检查所选邮箱', 'error');
+    }
+
+    selectedMailboxAddresses = new Set(
+      Array.isArray(result.results)
+        ? result.results.filter(item => item.success === false).map(item => item.address)
+        : []
+    );
+    updateBatchDeleteButtonState();
+    closeBatchDeleteConfirmModal();
+    await load();
+  } catch (error) {
+    console.error('批量删除失败:', error);
+    showToast('批量删除失败: ' + error.message, 'error');
+  } finally {
+    batchOperationInProgress = false;
+    if (confirmBtn) confirmBtn.disabled = false;
+    if (btnText) btnText.style.display = 'inline';
+    if (btnLoading) btnLoading.style.display = 'none';
+  }
 }
 
 /**
@@ -1654,6 +1790,7 @@ async function performBatchLoginOperation() {
   
   const emails = parseEmailList(textarea.value);
   const config = getBatchActionConfig(currentBatchAction);
+  if (!config) return;
   
   if (emails.length === 0) {
     showToast('请输入有效的邮箱地址', 'warn');
@@ -1669,22 +1806,14 @@ async function performBatchLoginOperation() {
       btnLoading.style.display = 'inline';
     }
 
-    const isDeleteAction = currentBatchAction === 'delete';
-    const response = await fetch(
-      isDeleteAction ? '/api/mailboxes/batch-delete' : '/api/mailboxes/batch-toggle-login',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          isDeleteAction
-            ? { addresses: emails }
-            : {
-                addresses: emails,
-                can_login: currentBatchAction === 'allow'
-              }
-        )
-      }
-    );
+    const response = await fetch('/api/mailboxes/batch-toggle-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        addresses: emails,
+        can_login: currentBatchAction === 'allow'
+      })
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -1735,7 +1864,7 @@ if (batchDenyBtn) {
 }
 
 if (batchDeleteBtn) {
-  batchDeleteBtn.addEventListener('click', () => showBatchLoginModal('delete'));
+  batchDeleteBtn.addEventListener('click', showBatchDeleteConfirmModal);
 }
 
 // 绑定批量模态框事件
@@ -1744,6 +1873,10 @@ const batchModalCancel = document.getElementById('batch-modal-cancel');
 const batchModalConfirm = document.getElementById('batch-modal-confirm');
 const batchEmailsInput = document.getElementById('batch-emails-input');
 const batchModal = document.getElementById('batch-login-modal');
+const batchDeleteModal = document.getElementById('batch-delete-modal');
+const batchDeleteClose = document.getElementById('batch-delete-close');
+const batchDeleteCancel = document.getElementById('batch-delete-cancel');
+const batchDeleteConfirm = document.getElementById('batch-delete-confirm');
 
 if (batchModalClose) {
   batchModalClose.addEventListener('click', closeBatchLoginModal);
@@ -1765,6 +1898,26 @@ if (batchModal) {
   batchModal.addEventListener('click', (e) => {
     if (e.target === batchModal) {
       closeBatchLoginModal();
+    }
+  });
+}
+
+if (batchDeleteClose) {
+  batchDeleteClose.addEventListener('click', closeBatchDeleteConfirmModal);
+}
+
+if (batchDeleteCancel) {
+  batchDeleteCancel.addEventListener('click', closeBatchDeleteConfirmModal);
+}
+
+if (batchDeleteConfirm) {
+  batchDeleteConfirm.addEventListener('click', performSelectedBatchDelete);
+}
+
+if (batchDeleteModal) {
+  batchDeleteModal.addEventListener('click', (e) => {
+    if (e.target === batchDeleteModal) {
+      closeBatchDeleteConfirmModal();
     }
   });
 }

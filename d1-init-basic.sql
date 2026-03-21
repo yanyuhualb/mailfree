@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS mailboxes (
   domain TEXT NOT NULL,
   password_hash TEXT,
   can_login INTEGER DEFAULT 0,
+  source_tag TEXT NOT NULL DEFAULT 'unknown',
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   last_accessed_at TEXT,
   expires_at TEXT,

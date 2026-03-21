@@ -35,12 +35,14 @@ export function buildMockMailboxes(limit = 10, offset = 0, mailDomains = []) {
   const domains = Array.isArray(mailDomains) ? mailDomains : [mailDomains].filter(Boolean);
   const now = Date.now();
   const size = Math.min(limit, 10);
+  const sourceTags = ['manual', 'api', 'manual', 'api', 'unknown'];
   return Array.from({ length: size }).map((_, i) => ({
     address: `${generateRandomId(10)}@${domains.length ? domains[(offset + i) % domains.length] : 'example.com'}`,
     created_at: formatTs(now - (offset + i) * 3600000),
     is_pinned: i < 2 ? 1 : 0, // 前两个邮箱设为置顶
     password_is_default: i % 3 === 0 ? 1 : 0, // 每三个邮箱有一个是默认密码
     can_login: i < 5 ? 1 : 0, // 前五个邮箱允许登录
+    source_tag: sourceTags[(offset + i) % sourceTags.length],
   }));
 }
 

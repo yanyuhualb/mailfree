@@ -20,7 +20,7 @@ async function mockApi(path, options){
     const domain = window.__MOCK_STATE__.domains[Number(url.searchParams.get('domainIndex')||0)] || 'example.com';
     const email = `${id}@${domain}`;
     // 记录至内存历史
-    window.__MOCK_STATE__.mailboxes.unshift({ address: email, created_at: new Date().toISOString().replace('T',' ').slice(0,19), is_pinned: 0 });
+    window.__MOCK_STATE__.mailboxes.unshift({ address: email, created_at: new Date().toISOString().replace('T',' ').slice(0,19), is_pinned: 0, source_tag: 'api' });
     return new Response(JSON.stringify({ email, expires: Date.now() + 3600000 }), { headers: jsonHeaders });
   }
   // emails list
@@ -49,11 +49,15 @@ async function mockApi(path, options){
   }
   // mailboxes list
   if (url.pathname === '/api/mailboxes' && (!options || options.method === undefined || options.method === 'GET')){
-    const mb = window.__MOCK_STATE__.mailboxes.length ? window.__MOCK_STATE__.mailboxes : (window.MockData?.buildMockMailboxes ? window.MockData.buildMockMailboxes(6,0,window.__MOCK_STATE__.domains) : []);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '10', 10), 50);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10), 0);
+    const q = String(url.searchParams.get('q') || '').trim().toLowerCase();
+    const sourceTag = String(url.searchParams.get('source_tag') || '').trim().toLowerCase();
+    const mb = window.__MOCK_STATE__.mailboxes.length ? window.__MOCK_STATE__.mailboxes : (window.MockData?.buildMockMailboxes ? window.MockData.buildMockMailboxes(Math.max(limit + offset, 12),0,window.__MOCK_STATE__.domains) : []);
     if (!window.__MOCK_STATE__.mailboxes.length) window.__MOCK_STATE__.mailboxes = mb;
     
     // 按置顶状态和时间排序
-    const sortedMailboxes = mb.sort((a, b) => {
+    const sortedMailboxes = [...mb].sort((a, b) => {
       // 首先按置顶状态排序（置顶的在前）
       if (a.is_pinned !== b.is_pinned) {
         return (b.is_pinned || 0) - (a.is_pinned || 0);
@@ -61,8 +65,14 @@ async function mockApi(path, options){
       // 然后按创建时间排序（新的在前）
       return new Date(b.created_at) - new Date(a.created_at);
     });
+
+    const filteredMailboxes = sortedMailboxes.filter(item => {
+      const matchesQuery = !q || String(item.address || '').toLowerCase().includes(q);
+      const matchesSourceTag = !sourceTag || !['manual', 'api', 'unknown'].includes(sourceTag) || normalizeMailboxSourceTag(item.source_tag) === sourceTag;
+      return matchesQuery && matchesSourceTag;
+    });
     
-    return new Response(JSON.stringify(sortedMailboxes.slice(0,10)), { headers: jsonHeaders });
+    return new Response(JSON.stringify(filteredMailboxes.slice(offset, offset + limit)), { headers: jsonHeaders });
   }
 
   // toggle pin (demo mode)
@@ -98,7 +108,7 @@ async function mockApi(path, options){
         return new Response('邮箱地址已存在，请选择其他用户名', { status: 409 });
       }
       
-      const item = { address: email, created_at: new Date().toISOString().replace('T',' ').slice(0,19), is_pinned: 0 };
+      const item = { address: email, created_at: new Date().toISOString().replace('T',' ').slice(0,19), is_pinned: 0, source_tag: 'manual' };
       window.__MOCK_STATE__.mailboxes.unshift(item);
       return new Response(JSON.stringify({ email, expires: Date.now() + 3600000 }), { headers: jsonHeaders });
     }catch(_){ return new Response('Bad Request', { status: 400 }); }
@@ -163,6 +173,72 @@ function formatTsMobile(ts){
     
     return `<span>${dateStr}</span><span>${timeStr}</span>`;
   } catch (_) { return `<span></span><span>${ts}</span>`; }
+}
+
+function normalizeMailboxSourceTag(sourceTag){
+  const normalized = String(sourceTag || '').trim().toLowerCase();
+  return ['manual', 'api', 'unknown'].includes(normalized) ? normalized : 'unknown';
+}
+
+function getMailboxSourceTagLabel(sourceTag){
+  switch (normalizeMailboxSourceTag(sourceTag)) {
+    case 'manual': return '手动生成';
+    case 'api': return 'API生成';
+    default: return '未标记';
+  }
+}
+
+function getMailboxSourceTagClass(sourceTag){
+  return `source-tag-${normalizeMailboxSourceTag(sourceTag)}`;
+}
+
+function escapeInlineArg(value){
+  return String(value ?? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function getSelectedMailboxSourceTag(){
+  const selected = String(els?.mbTagFilter?.value || '').trim().toLowerCase();
+  return ['manual', 'api', 'unknown'].includes(selected) ? selected : '';
+}
+
+function mailboxMatchesCurrentFilters(item){
+  const address = String(item?.address || '').toLowerCase();
+  const searchQuery = String(els?.mbSearch?.value || '').trim().toLowerCase();
+  const sourceTag = getSelectedMailboxSourceTag();
+  if (searchQuery && !address.includes(searchQuery)) return false;
+  if (sourceTag && normalizeMailboxSourceTag(item?.source_tag) !== sourceTag) return false;
+  return true;
+}
+
+function getMailboxPageCacheKey({ q = '', sourceTag = '' } = {}){
+  const normalizedQ = String(q || '').trim().toLowerCase();
+  const normalizedTag = ['manual', 'api', 'unknown'].includes(sourceTag) ? sourceTag : 'all';
+  return `mailboxes:page1:${normalizedTag}:${normalizedQ}`;
+}
+
+function renderMailboxItem(item = {}){
+  const address = String(item.address || '');
+  const safeAddress = escapeInlineArg(address);
+  const sourceTag = normalizeMailboxSourceTag(item.source_tag);
+  return `<div class="mailbox-item ${item.is_pinned ? 'pinned' : ''}" onclick="selectMailbox('${safeAddress}')">
+    <div class="mailbox-content">
+      <span class="address">${address}</span>
+      <div class="mailbox-meta">
+        <span class="time">${formatTs(item.created_at)}</span>
+        <span class="mailbox-source-tag ${getMailboxSourceTagClass(sourceTag)}">${getMailboxSourceTagLabel(sourceTag)}</span>
+      </div>
+    </div>
+    <div class="mailbox-actions">
+      <button class="btn btn-ghost btn-sm pin" onclick="togglePin(event,'${safeAddress}')" title="${item.is_pinned ? '取消置顶' : '置顶'}">
+        ${item.is_pinned ? '??' : '??'}
+      </button>
+      <button class="btn btn-ghost btn-sm del" onclick="deleteMailbox(event,'${safeAddress}')" title="删除">???</button>
+    </div>
+  </div>`;
+}
+
+function renderMailboxList(items){
+  return (items || []).map(renderMailboxItem).join('');
 }
 
 // 从文本/HTML中尽量提取激活码/验证码（优先纯数字，避免误识别纯字母词如 "expires"/"Welcome"）
@@ -362,6 +438,7 @@ const els = {
   modalContent: document.getElementById('modal-content'),
   mbList: document.getElementById('mb-list'),
   mbSearch: document.getElementById('mb-search'),
+  mbTagFilter: document.getElementById('mb-tag-filter'),
   mbLoading: document.getElementById('mb-loading'),
   toast: document.getElementById('toast'),
   mbPager: document.getElementById('mb-pager'),
@@ -1695,6 +1772,159 @@ async function loadMailboxes(options = {}){
   }
 }
 
+updateMbPagination = function() {
+  if (!els.mbPager) return;
+  
+  try {
+    const isFirstPage = mbPage <= 1;
+    if (els.mbPrev) {
+      els.mbPrev.disabled = isFirstPage;
+    }
+    
+    const hasMore = mbLastCount === MB_PAGE_SIZE;
+    if (els.mbNext) {
+      els.mbNext.disabled = !hasMore;
+    }
+    
+    if (els.mbPageInfo) {
+      if (isFirstPage && !hasMore) {
+        const searchQuery = (els.mbSearch?.value || '').trim();
+        const sourceTag = getSelectedMailboxSourceTag();
+        if (searchQuery || sourceTag) {
+          els.mbPageInfo.textContent = mbLastCount > 0 ? `找到 ${mbLastCount} 个邮箱` : '未找到匹配的邮箱';
+        } else {
+          els.mbPageInfo.textContent = mbLastCount > 0 ? `共 ${mbLastCount} 个邮箱` : '暂无邮箱';
+        }
+      } else {
+        els.mbPageInfo.textContent = `第 ${mbPage} 页`;
+      }
+      els.mbPageInfo.style.textAlign = 'center';
+    }
+    
+    els.mbPager.style.display = mbLastCount > 0 ? 'flex' : 'none';
+  } catch (error) {
+    console.error('updateMbPagination error:', error);
+  }
+};
+
+loadMailboxes = async function(options = {}){
+  try{
+    const q = (els.mbSearch?.value || '').trim();
+    const sourceTag = getSelectedMailboxSourceTag();
+    const mailboxCacheKey = getMailboxPageCacheKey({ q, sourceTag });
+    const canUsePrefetchedMailboxes = mbPage === 1 && !q && !sourceTag;
+
+    try{
+      if (els.mbLoading){
+        const tpl = await (await fetch('/templates/loading-inline.html', { cache: 'no-cache' })).text();
+        els.mbLoading.innerHTML = tpl;
+      }
+    }catch(_){ }
+
+    try{
+      const quotaCached = cacheGet('quota', 60*60*1000);
+      const quotaPrefetched = readPrefetch('mf:prefetch:quota');
+      const quotaEl = document.getElementById('quota');
+      if (quotaEl && quotaCached && typeof quotaCached.used !== 'undefined' && typeof quotaCached.limit !== 'undefined'){
+        const displayText = quotaCached.isAdmin 
+          ? `${quotaCached.used} 邮箱` 
+          : `${quotaCached.used} / ${quotaCached.limit}`;
+        quotaEl.textContent = displayText;
+        if (quotaCached.isAdmin) {
+          quotaEl.title = '系统总邮箱数量';
+          quotaEl.classList.add('admin-quota');
+        } else {
+          quotaEl.title = `已用邮箱 ${quotaCached.used} / 上限 ${quotaCached.limit}`;
+          quotaEl.classList.remove('admin-quota');
+        }
+      } else if (quotaEl && quotaPrefetched && typeof quotaPrefetched.used !== 'undefined' && typeof quotaPrefetched.limit !== 'undefined'){
+        const displayText = quotaPrefetched.isAdmin 
+          ? `${quotaPrefetched.used} 邮箱` 
+          : `${quotaPrefetched.used} / ${quotaPrefetched.limit}`;
+        quotaEl.textContent = displayText;
+        if (quotaPrefetched.isAdmin) {
+          quotaEl.title = '系统总邮箱数量';
+          quotaEl.classList.add('admin-quota');
+        } else {
+          quotaEl.title = `已用邮箱 ${quotaPrefetched.used} / 上限 ${quotaPrefetched.limit}`;
+          quotaEl.classList.remove('admin-quota');
+        }
+      }
+      const qController = new AbortController();
+      const qTimeout = setTimeout(()=>qController.abort(), 5000);
+      const qr = await api('/api/user/quota', { signal: qController.signal });
+      const quota = await qr.json();
+      clearTimeout(qTimeout);
+      if (quotaEl && quota && typeof quota.used !== 'undefined' && typeof quota.limit !== 'undefined'){
+        const displayText = quota.isAdmin 
+          ? `${quota.used} 邮箱` 
+          : `${quota.used} / ${quota.limit}`;
+        quotaEl.textContent = displayText;
+        if (quota.isAdmin) {
+          quotaEl.title = '系统总邮箱数量';
+          quotaEl.classList.add('admin-quota');
+        } else {
+          quotaEl.title = `已用邮箱 ${quota.used} / 上限 ${quota.limit}`;
+          quotaEl.classList.remove('admin-quota');
+        }
+      }
+      try{ cacheSet('quota', quota); }catch(_){ }
+    }catch(_){ }
+
+    if (mbPage === 1 && !options.forceFresh){
+      const mbCached = cacheGet(mailboxCacheKey, 6*60*60*1000);
+      if (Array.isArray(mbCached)){
+        const html = renderMailboxList(mbCached);
+        els.mbList.innerHTML = html || '<div style="color:#94a3b8">暂无历史邮箱</div>';
+        if (els.mbLoading) els.mbLoading.innerHTML = '';
+        mbLastCount = Array.isArray(mbCached) ? mbCached.length : 0;
+        updateMbPagination();
+      }
+      const mbPrefetched = canUsePrefetchedMailboxes ? readPrefetch('mf:prefetch:mailboxes') : null;
+      if (!options.forceFresh && Array.isArray(mbPrefetched)){
+        const html = renderMailboxList(mbPrefetched);
+        els.mbList.innerHTML = html || '<div style="color:#94a3b8">暂无历史邮箱</div>';
+        if (els.mbLoading) els.mbLoading.innerHTML = '';
+        mbLastCount = Array.isArray(mbPrefetched) ? mbPrefetched.length : 0;
+        updateMbPagination();
+        await prefetchTopEmails();
+        return;
+      }
+    }
+
+    const mController = new AbortController();
+    const mTimeout = setTimeout(()=>mController.abort(), 8000);
+    const params = new URLSearchParams({ 
+      limit: String(MB_PAGE_SIZE), 
+      offset: String((mbPage - 1) * MB_PAGE_SIZE) 
+    });
+    if (q) params.set('q', q);
+    if (sourceTag) params.set('source_tag', sourceTag);
+    
+    const r = await api(`/api/mailboxes?${params.toString()}`, { signal: mController.signal });
+    const items = await r.json();
+    clearTimeout(mTimeout);
+    const html = renderMailboxList(items);
+    
+    els.mbList.innerHTML = html || '<div style="color:#94a3b8">暂无历史邮箱</div>';
+    if (els.mbLoading) els.mbLoading.innerHTML = '';
+    
+    mbLastCount = Array.isArray(items) ? items.length : 0;
+    updateMbPagination();
+    
+    await prefetchTopEmails();
+    
+    if (mbPage === 1){
+      try{ cacheSet(mailboxCacheKey, items || []); }catch(_){ }
+    }
+  }catch(_){ 
+    if (els.mbLoading) els.mbLoading.innerHTML = '';
+    els.mbList.innerHTML = '<div style="color:#dc2626">加载失败</div>'; 
+    mbLastCount = 0;
+    updateMbPagination();
+  }
+};
+
 window.selectMailbox = async (addr) => {
   const now = Date.now();
   if (window.__lastSelectClick && now - window.__lastSelectClick < 1000){ return; }
@@ -1883,6 +2113,13 @@ if (els.mbSearch){
       ev.preventDefault();
       immediateMbSearch();
     }
+  });
+}
+
+if (els.mbTagFilter){
+  els.mbTagFilter.addEventListener('change', () => {
+    mbPage = 1;
+    loadMailboxes({ forceFresh: true });
   });
 }
 
