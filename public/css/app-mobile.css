@@ -257,6 +257,55 @@
   /* 移动端二级页操作条：只保留发送/清空（刷新隐藏成右上角图标） */
   .mail-actions-mobile{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; margin: 10px 0 6px; position: sticky; top: 6px; z-index: 6; }
   .mail-actions-mobile .btn{ width:100%; }
+
+  /* 邮箱详情视图：优化邮箱显示区布局 */
+  body.is-mobile.is-mailbox-view .generate-card{
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+  }
+  body.is-mobile.is-mailbox-view .mailbox-layout{
+    gap: 0;
+  }
+  body.is-mobile.is-mailbox-view .mailbox-display-section{
+    padding: 10px 12px;
+    background: var(--card-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 12px;
+    margin-bottom: 8px;
+  }
+  body.is-mobile.is-mailbox-view .mailbox-display-content{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  body.is-mobile.is-mailbox-view .section-header{
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+  body.is-mobile.is-mailbox-view .section-icon{
+    display: none;
+  }
+  body.is-mobile.is-mailbox-view .section-title{
+    font-size: 12px;
+    color: var(--text-light);
+  }
+  body.is-mobile.is-mailbox-view .email-display{
+    flex: 1;
+    min-height: auto;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+  }
+  body.is-mobile.is-mailbox-view .email-text{
+    font-size: 14px;
+    font-weight: 600;
+  }
+  body.is-mobile.is-mailbox-view #email-actions{
+    display: none !important;
+  }
 }
 
 /* 横屏优化 */

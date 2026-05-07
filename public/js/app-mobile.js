@@ -64,7 +64,12 @@
         var showGen = function(){
           if (tabGen) tabGen.setAttribute('aria-pressed','true');
           if (tabHis) tabHis.setAttribute('aria-pressed','false');
+          // 移除邮箱详情视图标记
+          try{ document.body.classList.remove('is-mailbox-view'); }catch(_){ }
           if (genCard) genCard.style.display = '';
+          // 恢复配置区显示
+          var cfgSection = document.querySelector('.mailbox-config-section');
+          if (cfgSection) cfgSection.style.display = '';
           if (inboxCard) inboxCard.style.display = 'none';
           if (sidebarEl){ sidebarEl.style.display = 'none'; try{ sidebarEl.classList.remove('history-inline'); sidebarEl.classList.remove('list-collapsed'); }catch(_){ } }
           if (switchWrap) switchWrap.style.display = '';
@@ -112,8 +117,10 @@
         var showHis = function(){
           if (tabGen) tabGen.setAttribute('aria-pressed','false');
           if (tabHis) tabHis.setAttribute('aria-pressed','true');
+          // 移除邮箱详情视图标记
+          try{ document.body.classList.remove('is-mailbox-view'); }catch(_){ }
           if (genCard) genCard.style.display = 'none';
-          // 移动端“历史邮箱”显示侧栏列表到主区域下方，而非显示收件箱卡片
+          // 移动端”历史邮箱”显示侧栏列表到主区域下方，而非显示收件箱卡片
           if (inboxCard) inboxCard.style.display = 'none';
           try{ var mainWrap = document.querySelector('.main'); if (mainWrap && sidebarEl){ mainWrap.appendChild(sidebarEl); } }catch(_){ }
           if (sidebarEl){ sidebarEl.style.display = ''; try{ sidebarEl.classList.add('history-inline'); sidebarEl.classList.remove('collapsed'); sidebarEl.classList.remove('list-collapsed'); }catch(_){ } }
@@ -126,7 +133,12 @@
         var showMailboxView = function(){
           try{ sessionStorage.setItem('mf:m:lastMain', lastMainView); }catch(_){ }
           try{ sessionStorage.setItem('mf:m:mainTab','mail'); }catch(_){ }
-          if (genCard) genCard.style.display = 'none';
+          // 标记当前在邮箱详情视图
+          try{ document.body.classList.add('is-mailbox-view'); }catch(_){ }
+          // 不隐藏整个 generate-card，而是只隐藏配置区，保持邮箱地址显示区可见
+          if (genCard) genCard.style.display = '';
+          var cfgSection = document.querySelector('.mailbox-config-section');
+          if (cfgSection) cfgSection.style.display = 'none';
           if (sidebarEl) sidebarEl.style.display = 'none';
           if (inboxCard) inboxCard.style.display = '';
           if (switchWrap) switchWrap.style.display = 'none';
