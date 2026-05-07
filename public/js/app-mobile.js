@@ -122,6 +122,8 @@
           try{ var mri = document.getElementById('m-refresh-icon'); if (mri) mri.remove(); }catch(_){ }
           // 移除二级页操作条
           try{ var maw = document.getElementById('mail-actions-mobile'); if (maw) maw.remove(); }catch(_){ }
+          // 隐藏返回按钮
+          try{ var backBtn = document.getElementById('m-back-btn'); if (backBtn) backBtn.style.display = 'none'; }catch(_){ }
           updateActionButtons('generate');
           try{ sessionStorage.setItem('mf:m:mainTab','gen'); }catch(_){ }
         };
@@ -136,6 +138,8 @@
           try{ var mainWrap = document.querySelector('.main'); if (mainWrap && sidebarEl){ mainWrap.appendChild(sidebarEl); } }catch(_){ }
           if (sidebarEl){ sidebarEl.style.display = ''; try{ sidebarEl.classList.add('history-inline'); sidebarEl.classList.remove('collapsed'); sidebarEl.classList.remove('list-collapsed'); }catch(_){ } }
           if (switchWrap) switchWrap.style.display = '';
+          // 隐藏返回按钮
+          try{ var backBtn = document.getElementById('m-back-btn'); if (backBtn) backBtn.style.display = 'none'; }catch(_){ }
           lastMainView = 'his';
           try{ if (location.hash !== '#history'){ history.replaceState({ mfView: 'history' }, '', '#history'); } }catch(_){ }
           try{ sessionStorage.setItem('mf:m:mainTab','his'); }catch(_){ }
@@ -152,11 +156,29 @@
           if (cfgSection) cfgSection.style.display = 'none';
           if (sidebarEl) sidebarEl.style.display = 'none';
           if (inboxCard) inboxCard.style.display = '';
+          // 隐藏主切换栏
           if (switchWrap) switchWrap.style.display = 'none';
           // 确保选中”收件箱”标签为默认
           try{ var ti=document.getElementById('tab-inbox'), ts=document.getElementById('tab-sent'); if (ti){ ti.setAttribute('aria-pressed','true'); } if (ts){ ts.setAttribute('aria-pressed','false'); } }catch(_){ }
           // 为浏览器”返回”建立历史记录，并更新锚点
           try{ history.pushState({ mfView: 'inbox' }, '', '#inbox'); }catch(_){ }
+
+          // 在 list-card header 创建返回按钮
+          try{
+            var header = inboxCard ? inboxCard.querySelector('.listcard-header') : null;
+            var backBtn = document.getElementById('m-back-btn');
+            if (!backBtn && header){
+              backBtn = document.createElement('button');
+              backBtn.id = 'm-back-btn';
+              backBtn.className = 'btn btn-ghost btn-sm';
+              backBtn.title = '切换邮箱';
+              backBtn.innerHTML = '<span class=”btn-icon” style=”margin:0”>◀</span>';
+              backBtn.style.cssText = 'width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;margin-right:8px;flex-shrink:0;';
+              header.insertBefore(backBtn, header.firstChild);
+              backBtn.onclick = function(){ showHis(); };
+            }
+            if (backBtn) backBtn.style.display = '';
+          }catch(_){ }
 
           // 在标题右侧放置刷新图标
           try{
