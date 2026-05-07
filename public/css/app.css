@@ -95,6 +95,15 @@
   user-select: none;
 }
 
+/* 移动端安全区域和防溢出 */
+@supports (padding: env(safe-area-inset-bottom)){
+  body{
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* 允许选择文本的重要元素 */
 input,
 textarea,
@@ -116,17 +125,24 @@ code,
   user-select: text;
 }
 
-/* 移动端触摸优化 - 防止长按选择 */
+/* 移动端触摸优化 */
 @media (max-width: 768px) {
   button,
   .btn,
   .sidebar-toggle-btn,
   .close,
   .nav-actions > *,
-  .mailbox-actions > * {
+  .mailbox-actions > *,
+  .seg-btn,
+  .pager .btn {
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
   }
+  /* 确保可点击元素最小 44px 触摸区域 */
+  .btn{ min-height: 44px; }
+  .seg-btn{ min-height: 40px; padding: 8px 14px; }
+  .sidebar-toggle-btn{ min-width: 44px; min-height: 44px; }
+  .close{ min-width: 44px; min-height: 44px; }
 }
 
 body{
@@ -2546,15 +2562,17 @@ select:disabled{
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  html{ overflow-x: hidden; }
+  body{ overflow-x: hidden; width: 100%; }
   .container{
     grid-template-columns: 1fr;
-    gap: 20px;
-    padding: 12px 12px 20px;
+    gap: 16px;
+    padding: 8px 8px 20px;
     width: 100%;
     max-width: 100vw;
     overflow-x: hidden;
   }
-  
+
   .sidebar{
     position: relative;
     top: auto;
@@ -2562,14 +2580,15 @@ select:disabled{
     overflow: visible;
     overscroll-behavior: auto;
   }
-  
+
   .topbar{
-    padding: 12px 20px;
+    padding: 10px 12px;
   }
   /* 顶栏：移动端仅显示图标 */
   .brand-text{ display:none; }
   .nav-actions .btn .btn-text{ display:none; }
-  .nav-actions .btn{ padding-left: 10px; padding-right: 10px; }
+  .nav-actions .btn{ padding-left: 10px; padding-right: 10px; min-height: 44px; }
+  .role-badge{ font-size: 12px; padding: 4px 10px; }
   
   .card{ padding: 16px; }
   
@@ -2617,6 +2636,7 @@ select:disabled{
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 8px;
   }
+  .mailbox-actions .btn{ font-size: 13px; }
   
   .range-container{
     flex-direction: column;
@@ -2644,15 +2664,30 @@ select:disabled{
   /* Toast 响应式规则已随模板迁移 */
   
   .modal{
-    padding: 12px;
+    padding: 0;
+    align-items: flex-end;
   }
-  
+
+  .modal .modal-card{
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    animation: modalSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes modalSlideUp{
+    from{ transform: translateY(100%); opacity: 0.8; }
+    to{ transform: translateY(0); opacity: 1; }
+  }
+
   .modal-header{
-    padding: 16px 20px;
+    padding: 14px 16px;
   }
-  
+
   .modal-body{
-    padding: 20px;
+    padding: 16px;
+    max-height: calc(92vh - 56px);
   }
   
   /* 邮件详情响应式 */
@@ -2753,6 +2788,33 @@ select:disabled{
     font-size: 9px;
     padding: 2px 6px;
   }
+
+  /* 邮件列表头响应式 */
+  .listcard-header{
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .view-switch{
+    justify-self: start;
+  }
+  .loading-indicator{
+    justify-self: start;
+  }
+  .listcard-title{ font-size: 17px; }
+
+  /* 分页器响应式 */
+  .pager{ gap: 4px; }
+  .pager .muted{ min-width: 60px !important; font-size: 12px; }
+  .pager .btn{ font-size: 12px; }
+
+  /* 搜索框响应式 */
+  .sidebar-search-input{ font-size: 16px; /* 防止 iOS 自动缩放 */ }
+
+  /* compose 模态框输入框字体 */
+  .field-input, .field-textarea{ font-size: 16px; /* 防止 iOS 自动缩放 */ }
+
+  /* 邮箱内容区域适配 */
+  .email-display{ padding: 12px; font-size: 14px; word-break: break-all; }
 }
 
 /* 横屏优化：当设备较矮（≤480px 高）并且较窄（≤900px 宽）时应用 */

@@ -1702,13 +1702,72 @@
     width: 95vw;
     max-height: 95vh;
   }
-  
+
   .subpage-header, .subpage-body, .subpage-footer {
     padding: 16px;
   }
-  
+
   .subpage-body {
     gap: 16px;
+  }
+
+  /* 模态框底部弹出 */
+  .modal{
+    padding: 0;
+    align-items: flex-end;
+  }
+  .modal .modal-card{
+    width: 100%;
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+  }
+  .modal-header{ padding: 14px 16px; }
+  .modal-body{ padding: 16px; }
+
+  /* 搜索框防 iOS 缩放 */
+  .search-input,
+  .filter-select,
+  .form-input,
+  .form-textarea{
+    font-size: 16px;
+  }
+
+  /* 卡片网格在极窄屏 */
+  .page-mailboxes #grid.grid,
+  .page-mailboxes .grid{
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 小屏幕子页面全屏 */
+  .subpage-content{
+    width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  /* 批量操作文本隐藏，只留图标 */
+  .batch-actions .btn-text{
+    display: none;
+  }
+
+  /* 卡片全宽 */
+  .page-mailboxes #grid.grid,
+  .page-mailboxes .grid{
+    grid-template-columns: 1fr;
+  }
+  .mailbox-card{
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* 安全区域适配 */
+@supports (padding: env(safe-area-inset-bottom)){
+  .page-mailboxes .container{
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
 }
 

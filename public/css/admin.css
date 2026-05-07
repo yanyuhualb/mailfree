@@ -1324,6 +1324,38 @@
     flex-wrap: wrap;
     gap: 4px;
   }
+
+  /* 模态框移动端底部弹出 */
+  .modal{
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+  .modal .modal-card{
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh !important;
+    border-radius: 20px 20px 0 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 防止 iOS 输入框缩放 */
+  .admin-page .input,
+  .admin-page .select,
+  .admin-page textarea{
+    font-size: 16px;
+  }
+}
+
+/* 安全区域适配 */
+@supports (padding-bottom: env(safe-area-inset-bottom)){
+  .admin-container{
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+  @media (max-width: 900px){
+    .admin-container{
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+  }
 }
 
 /* ===========================================
