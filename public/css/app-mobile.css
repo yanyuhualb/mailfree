@@ -303,8 +303,20 @@
     font-size: 14px;
     font-weight: 600;
   }
+  /* 邮箱详情视图：操作按钮改为横向紧凑布局 */
   body.is-mobile.is-mailbox-view #email-actions{
-    display: none !important;
+    display: flex !important;
+    flex-direction: row;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  body.is-mobile.is-mailbox-view #email-actions .btn{
+    flex: 1;
+    height: 36px;
+    font-size: 13px;
+  }
+  body.is-mobile.is-mailbox-view #email-actions .btn-icon{
+    margin-right: 4px;
   }
 }
 
